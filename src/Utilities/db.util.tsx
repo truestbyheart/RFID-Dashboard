@@ -2,7 +2,7 @@ import Database from 'tauri-plugin-sql-api'
 import { AlertProps } from '../Reusable/Alert';
 
 const get_database_conn = async () => {
-    return await Database.load("mysql://sx8kir6r3egkmzjt:jacapo1jj37mmdq8@qao3ibsa7hhgecbv.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/sx7feerlqwg99h0z")
+    return await Database.load("")
 }
 
 
