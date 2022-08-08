@@ -1,12 +1,14 @@
+import './globals.d.ts'
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
-import "ka-table/style.css";
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 // import Login from './Pages/Login/index';
 // import AddCard from './Pages/Card/Add/';
 import ViewUsers from './Pages/Card/List';
+import AccessLog from './Pages/Card/AccessLog';
+import MainPanel from './Pages';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -14,7 +16,12 @@ const root = ReactDOM.createRoot(
 root.render(
   <BrowserRouter>
     <Routes>
-      <Route path="/" element={<ViewUsers />} />
+      <Route path="/" element={<MainPanel />}>
+        <Route path='users' element={<ViewUsers />} />
+        <Route path="access-log">
+          <Route path=":rfid" element={<AccessLog />} />
+        </Route>
+      </Route>
     </Routes>
   </BrowserRouter>
 );
