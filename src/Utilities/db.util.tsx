@@ -1,10 +1,9 @@
-import Database from 'tauri-plugin-sql-api'
-import { AlertProps } from '../Reusable/Alert';
+import Database from 'tauri-plugin-sql-api';
+
 
 const get_database_conn = async () => {
     const invoke = window.__TAURI__.invoke;
     const db_string = await invoke('get_db_string')
-    console.log(db_string)
     return await Database.load(db_string)
 }
 
@@ -29,10 +28,24 @@ export type UsersDataSet = {
     updated_at: string | null;
 }
 
+export type LogsDataSet = {
+    id: number;
+    current_state: string;
+    rf_id: string;
+    created_at: string | null;
+    updated_at: string | null;
+}
+
 export type UsersResult = {
     data: UsersDataSet[];
     meta: DbPagination['meta']
 }
+
+export type LogsResult = {
+    data: LogsDataSet[];
+    meta: DbPagination['meta']
+}
+
 const invoke = window.__TAURI__.invoke;
 class PaginationHandler {
     db;
@@ -50,7 +63,6 @@ class PaginationHandler {
     async generate_pagination_obj(table_name: string, limit: number, page: number): Promise<DbPagination> {
         // @ts-ignore
         const count: number = (await (await this.db).select(`SELECT COUNT(id) FROM ${table_name}`))[0]["COUNT(id)"] as unknown as number;
-        console.log(count)
         const totalPages = Math.ceil(count / limit) || 1;
         const currentPage = page ? page : 1;
         const offset = (currentPage - 1) * limit;
@@ -74,7 +86,7 @@ class UsersHandler extends PaginationHandler {
     }
 
     async check_rfid_existance(rf_id: string): Promise<object[]> {
-        return await (await this.db).select(`SELECT * FROM users WHERE rf_id="${rf_id}"`);
+        return await (await this.db).select(`SELECT * FROM users WHERE rf_id='${rf_id}'`);
     }
 
     async create_rfid_user(name: string, rf_id: string): Promise<boolean> {
@@ -82,25 +94,36 @@ class UsersHandler extends PaginationHandler {
         if (it_exists.length > 0) {
             throw new Error('Card already exists')
         }
-        const res = await (await this.db).execute("INSERT INTO `users` (`id`, `full_name`, `rf_id`, `created_at`, `updated_at`) VALUES (NULL, '" + name + "', '" + rf_id + "', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+        const res = await (await this.db).execute(`INSERT INTO users (full_name,rf_id) VALUES ('${name}', '${rf_id}')`);
         return res.rowsAffected > 0 ? true : false;
     }
 
     async get_all_users(limit: number, page: number): Promise<UsersResult> {
         const db_opt = await this.generate_pagination_obj("users", limit, page);
-        const dataArray = await (await this.db).select(`SELECT * FROM users LIMIT ${limit} OFFSET ${db_opt.dbOptions.offset}`);
+        const dataArray = await (await this.db).select(`SELECT * FROM users ORDER BY id ASC LIMIT ${limit} OFFSET ${db_opt.dbOptions.offset}`);
         return { data: dataArray as unknown as UsersDataSet[], meta: db_opt.meta };
     }
 
     async update_user_details(full_name: string, rf_id: string, id: number): Promise<boolean> {
-        const queryResult = await (await this.db).execute(`UPDATE users SET  full_name="${full_name}", rf_id="${rf_id}" WHERE id="${id}"`);
+        const queryResult = await (await this.db).execute(`UPDATE users SET  full_name='${full_name}', rf_id='${rf_id}' WHERE id=${id}`);
         return queryResult.rowsAffected > 0 ? true : false
     }
 
     async delete_user(id: number): Promise<boolean> {
-        const queryResult = await (await this.db).execute(`DELETE FROM users WHERE id="${id}"`);
+        const queryResult = await (await this.db).execute(`DELETE FROM users WHERE id='${id}'`);
         return queryResult.rowsAffected > 0 ? true : false;
     }
 }
 
+class LogsHandler extends PaginationHandler {
+    async get_all_logs(limit: number, page: number): Promise<LogsDataSet[]> {
+        const output = await window.__TAURI__.invoke('get_all_access_logs');
+        // const db_opt = await this.generate_pagination_obj("access_logs", limit, page);
+        // const dataArray = await (await this.db).select(`SELECT * FROM access_logs ORDER BY id ASC LIMIT ${limit} OFFSET ${db_opt.dbOptions.offset}`);
+        // console.log(dataArray)
+        return output as unknown as LogsDataSet[];
+    }
+}
+
 export const usersHandler = new UsersHandler();
+export const logsHandler = new LogsHandler();

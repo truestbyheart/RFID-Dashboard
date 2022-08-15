@@ -21,24 +21,24 @@ const MenuDrawer: React.FC = () => (
         <Divider />
         <List>
             <ListItem key="users" disablePadding>
-                <ListItemButton>
-                    <ListItemIcon>
-                        <PeopleAltRoundedIcon />
-                    </ListItemIcon>
-                    <Link to="/users">
+                <Link to="/users" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
+                    <ListItemButton>
+                        <ListItemIcon>
+                            <PeopleAltRoundedIcon />
+                        </ListItemIcon>
                         <ListItemText primary="All Users" />
-                    </Link>
-                </ListItemButton>
+                    </ListItemButton>
+                </Link>
             </ListItem>
             <ListItem key="logs" disablePadding>
-                <ListItemButton>
-                    <ListItemIcon>
-                        <BookIcon />
-                    </ListItemIcon>
-                    <Link to="/logs">
+                <Link to="/logs/all" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
+                    <ListItemButton>
+                        <ListItemIcon>
+                            <BookIcon />
+                        </ListItemIcon>
                         <ListItemText primary="Accessc Logs" />
-                    </Link>
-                </ListItemButton>
+                    </ListItemButton>
+                </Link>
             </ListItem>
         </List>
     </div>

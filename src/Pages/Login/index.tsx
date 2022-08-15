@@ -15,10 +15,8 @@ const Login: React.FC = () => {
         setAuthenticating(true) 
         try {
             let db = await usersHandler.login_user(email, pass)
-            console.log(db)
             setAuthenticating(false) 
         } catch (error) {
-            console.log(error)
             setAuthenticating(false) 
         }
     }

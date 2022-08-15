@@ -20,7 +20,15 @@ serde = { version = "1.0", features = ["derive"] }
 tauri = { version = "1.0.4", features = ["api-all"] }
 diesel = { version = "1.4.4", features = ["mysql"] }
 dotenv = "0.15.0"
-tauri-plugin-sql = { git = "https://github.com/tauri-apps/tauri-plugin-sql", rev = "b13efd1e9d8f6c862b67917f3c62536ed1c64e9c", features = ["mysql"] }
+tauri-plugin-sql = { git = "https://github.com/tauri-apps/tauri-plugin-sql", rev = "b13efd1e9d8f6c862b67917f3c62536ed1c64e9c", features = ["postgres"] }
+# DB Libs
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "postgres", "chrono" ] }
+sqlb = "0.0.8"
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+thiserror = "1.0"
+chrono = "0.4"
+sqlv = { path = "./sqlv" }
 
 [features]
 # by default Tauri runs in production mode
