@@ -245,22 +245,36 @@ async fn get_all_users(
     Ok(values)
 }
 
-type LastInsertId = u64;
 #[command]
-async fn execute(
-  db_instances: State<'_, DbInstances>,
-  db: String,
-  query: String,
-  values: Vec<JsonValue>,
-) -> Result<(u64, LastInsertId)> {
-  let mut instances = db_instances.0.lock().await;
+async fn search_all_users(
+    db_instances: State<'_, DbInstances>,
+    db: String,
+    q: String
+) -> Result<Vec<HashMap<String, JsonValue>>>  {
+let sql = format!("SELECT * FROM users WHERE full_name LIKE '%{q}%' OR rf_id LIKE '%{q}%' ORDER BY id ASC");
 
-  let db = instances.get_mut(&db).ok_or(Error::DatabaseNotLoaded(db))?;
-  let mut query = sqlx::query(&query);
+    let mut instances = db_instances.0.lock().await;
+    let db = instances.get_mut(&db).ok_or(Error::DatabaseNotLoaded(db))?;
 
-  let result = query.execute(&*db).await?;
-  let r = Ok((result.rows_affected(), 0));
-  r
+    let mut query = sqlx::query_as::<_, User>(&sql);
+    let users = query.fetch_all(&*db).await?;
+    let mut values: Vec<HashMap<String, JsonValue>> = Vec::new();
+    for row in users {
+        let mut value: HashMap<String, JsonValue> = HashMap::default();
+        value.insert("id".to_string(), JsonValue::Number(row.id.into()));
+        value.insert("full_name".to_string(), JsonValue::String(row.full_name));
+        value.insert("rf_id".to_string(), JsonValue::String(row.rf_id));
+        value.insert(
+            "created_at".to_string(),
+            JsonValue::String(row.created_at.to_string()),
+        );
+        value.insert(
+            "updated_at".to_string(),
+            JsonValue::String(row.updated_at.to_string()),
+        );
+        values.push(value)
+    }
+    Ok(values)
 }
 
 pub struct Sqlv<R: Runtime> {
@@ -272,10 +286,10 @@ impl<R: Runtime> Default for Sqlv<R> {
         Self {
             invoke_handler: Box::new(tauri::generate_handler![
                 load,
-                execute,
                 get_all_access_logs,
                 generate_pagination_obj,
-                get_all_users
+                get_all_users,
+                search_all_users
             ]),
         }
     }

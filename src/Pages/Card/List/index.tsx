@@ -11,6 +11,12 @@ import TableRow from '@mui/material/TableRow';
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 import PrintIcon from '@mui/icons-material/Print';
 import DescriptionIcon from '@mui/icons-material/Description';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import UpgradeIcon from '@mui/icons-material/Upgrade';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import BorderColorIcon from '@mui/icons-material/BorderColor';
+import ReplayIcon from '@mui/icons-material/Replay';
 import { CSVLink } from "react-csv";
 
 
@@ -88,13 +94,18 @@ const AddUserDialog: React.FC<DialogProps> = ({ open, data, setOpen, updateFunc,
             <DialogActions>
                 <Button onClick={() => setOpen(false)}>Cancel</Button>
                 {createMode
-                    ? (<Button variant='contained' color='primary' autoFocus onClick={() => createNewUser()}>
+                    ? (<Button variant='contained' color='primary' autoFocus onClick={() => createNewUser()} disabled={isCreating}>
                         {isCreating ? (<div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
                             <span className="visually-hidden">Loading...</span>
-                        </div>) : ""}
+                        </div>) : <AddIcon className='me-2' />}
                         Create
                     </Button>)
-                    : (<Button variant='contained' color='primary' autoFocus onClick={() => updateUserDetails()}>Update</Button>)
+                    : (<Button variant='contained' color='primary' autoFocus onClick={() => updateUserDetails()} disabled={isCreating}>
+                        {isCreating ? (<div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
+                            <span className="visually-hidden">Loading...</span>
+                        </div>) : <UpgradeIcon className='me-2' />}
+                        Update
+                    </Button>)
                 }
             </DialogActions>
         </Dialog>
@@ -124,6 +135,23 @@ async function UsersHandler(limit: number, page: number): Promise<UsersDataSet> 
     return { data, meta }
 }
 
+async function SearchUsersHandler(search: string): Promise<UsersDataSet> {
+    const db_string = await invoke('get_db_string');
+    const db = await invoke('plugin:sqlv|load', { db: db_string });
+    const data = await invoke('plugin:sqlv|search_all_users', { db, q: search }) as unknown as User[];
+
+    return {
+        data,
+        meta: {
+            limit: data.length,
+            page: 1,
+            currentPage: 1,
+            offset: 0,
+            count: data.length,
+        }
+    };
+}
+
 const ViewUsers: React.FC = () => {
     // State 
     const [rows, setRows] = useState<UsersDataSet['data']>([]);
@@ -139,8 +167,10 @@ const ViewUsers: React.FC = () => {
 
     const [page, setPage] = React.useState<number>(0);
     const [rowsPerPage, setRowsPerPage] = React.useState<number>(10);
-    const [isDeleting, setIsDeleting] = React.useState<boolean>(false)
+    const [isDeleting, setIsDeleting] = React.useState<boolean>(false);
     const [data, setData] = React.useState<DialogProps['data']>({ full_name: '', rf_id: '', id: 1 });
+    const [search, setSearch] = React.useState<string>('');
+    const [isSearch, setIsSearch] = React.useState<boolean>(false);
 
     const stateRefreshHandler = (res: UsersDataSet) => {
         setRows(res.data);
@@ -148,10 +178,27 @@ const ViewUsers: React.FC = () => {
         setPage(0);
     }
 
+    const handleSearch = () => {
+        setIsSearch(true);
+        SearchUsersHandler(search)
+            .then((res) => {
+                console.log(res);
+                // stateRefreshHandler(res);
+                setRows(res.data);
+                // setRowsPerPage(res.meta.count);
+                // setPage(res.meta.page);
+                setIsSearch(false);
+            })
+            .catch(error => console.log(error));
+    }
+
     const handleChangePage = (event: unknown, newPage: number) => {
         console.log({ page, event })
         getting(page, rowsPerPage)
-            .then(stateRefreshHandler)
+            .then((res) => {
+                stateRefreshHandler(res);
+                setIsSearch(false);
+            })
             .catch((error: any) => console.log(error));
     };
 
@@ -173,14 +220,21 @@ const ViewUsers: React.FC = () => {
     };
 
     const updateUserDetails = async () => {
+        setIsCreating(true);
         const hasUpdated = await usersHandler.update_user_details(data.full_name, data.rf_id, data.id);
         if (hasUpdated) {
             setShow(true)
             setOpen(false)
             setSnackBody({ severity: 'success', message: 'User updated successfully' })
             getting(page, rowsPerPage)
-                .then(stateRefreshHandler)
-                .catch((error: any) => console.log(error));
+                .then((res) => {
+                    stateRefreshHandler(res);
+                    setIsCreating(false);
+                })
+                .catch((error: any) => {
+                    setIsCreating(false);
+                    console.log(error)
+                });
         } else {
             setShow(true)
             setSnackBody({ severity: 'error', message: 'Failed to update user' })
@@ -279,10 +333,19 @@ const ViewUsers: React.FC = () => {
                                     <TableCell align="center" colSpan={4}>
                                         <Row>
                                             <Col md={9}>
-                                                <TextField variant='standard' label="Search" className="w-100"></TextField>
+                                                <TextField variant='standard' label="Search Name Or Rfid" className="w-100" onChange={(e) => setSearch(e.target.value)}></TextField>
                                             </Col>
                                             <Col md={3}>
-                                                <Button variant="contained" color="primary" className="mt-2">Filter</Button>
+                                                <Button onClick={() => {
+                                                    handleSearch();
+                                                }} variant="contained" color="primary" className="mt-2" disabled={isSearch}>
+                                                    {isSearch ? (
+                                                        <div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
+                                                            <span className="visually-hidden">Loading...</span>
+                                                        </div>
+                                                    ) : <SearchIcon className='me-2' />}
+                                                    Search
+                                                </Button>
                                             </Col>
                                         </Row>
                                     </TableCell>
@@ -293,16 +356,21 @@ const ViewUsers: React.FC = () => {
                                             setCreateMode(true)
                                             setIsCreating(false)
                                         }}>
-                                            <PersonAddAltIcon className='me-3' />
+                                            <PersonAddAltIcon className='me-2' />
                                             Add User
                                         </Button>
-                                        <Button  color='primary' className='ms-3'>
-                                            <PrintIcon className='me-3' />
-                                            <CSVLink data={rows} style={{textDecoration: "none" }}>Print CSV</CSVLink>
+                                        <Button color='primary' className='ms-3'>
+                                            <PrintIcon className='me-2' />
+                                            <CSVLink data={rows} style={{ textDecoration: "none" }}>Print CSV</CSVLink>
                                         </Button>
                                         <Button color='primary' className='ms-3' onClick={() => CreatePdf()}>
-                                            <DescriptionIcon className='me-3' />
+                                            <DescriptionIcon className='me-2' />
                                             Print PDF
+                                        </Button>
+                                        <Button color='primary' className='ms-3' onClick={async () => {
+                                            await getting(page, rowsPerPage).then(stateRefreshHandler).catch(error => console.log(error))
+                                        }}>
+                                            <ReplayIcon />
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -340,21 +408,21 @@ const ViewUsers: React.FC = () => {
                                                                 setCreateMode(false)
                                                                 setData({ id: row.id, full_name: row.full_name, rf_id: row.rf_id });
                                                                 setOpen(true);
-                                                            }} className="w-100">Edit</Button>
+                                                            }} >
+                                                                <BorderColorIcon className='me-2' />
+                                                                Edit
+                                                            </Button>
                                                         </div>
-                                                        {/* <div className="col-md-3">
-                                                            <Button variant="contained" color="secondary" className="w-100">View Logs</Button>
-                                                        </div> */}
                                                         <div className="col-md-3 ms-3">
-                                                            <Button variant="contained" color="error" className="w-100" onClick={() => {
+                                                            <Button variant="contained" color="error" className='ms-3' onClick={() => {
                                                                 setData({ id: row.id, full_name: row.full_name, rf_id: row.rf_id })
                                                                 deleteUser()
-                                                            }}>
+                                                            }} disabled={isDeleting}>
                                                                 {isDeleting ? (
                                                                     <div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
                                                                         <span className="visually-hidden">Loading...</span>
                                                                     </div>
-                                                                ) : ""}
+                                                                ) : <DeleteForeverIcon className='me-2' />}
                                                                 Delete
                                                             </Button>
                                                         </div>
