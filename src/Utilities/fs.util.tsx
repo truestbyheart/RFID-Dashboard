@@ -18,5 +18,5 @@ export const generateDatabaseString = (connectionOptions: DatabaseConnection): s
 }
 
 export const createExportDir = async () => {
-    await createDir('rfid/export', { dir: BaseDirectory.Document, recursive: true });
+    await createDir('rfid/exports', { dir: BaseDirectory.Document, recursive: true });
 }

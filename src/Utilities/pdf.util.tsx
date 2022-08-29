@@ -14,8 +14,8 @@ const generatePDF = async (filename: string, tableColumn: string[], tableRows: a
         })
 
         await createExportDir();
-        await writeTextFile(filename, doc.output(), { dir: BaseDirectory.Document });
-        await sendAppNotification(`File saved at ${BaseDirectory.Document}/rfis/export/${filename}`);
+        await writeTextFile(`rfid/exports/${filename}`, doc.output(), { dir: BaseDirectory.Document });
+        await sendAppNotification(`File saved at ${BaseDirectory.Document}/rfid/exports/${filename}`);
     } catch (error) {
         console.log(error)
         await sendAppNotification(`${String(error)}`);
