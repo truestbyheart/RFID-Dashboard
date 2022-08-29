@@ -10,6 +10,6 @@ export const generateCSVFile = async (filename:string, payload: any) => {
         await writeTextFile(`rfid/exports/${filename}`, csv, { dir: BaseDirectory.Document });
         await sendAppNotification(`File saved at ${BaseDirectory.Document}/rfid/exports/${filename}`);
     } catch (error) {
-        await sendAppNotification(`${error}`);
+        await sendAppNotification(`${String(error)}`);
     }
 }
