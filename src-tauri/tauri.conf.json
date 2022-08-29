@@ -13,7 +13,17 @@
   },
   "tauri": {
     "allowlist": {
-      "all": true
+      "all": true,
+      "fs": {
+        "writeFile": true,
+        "scope": ["$APP/*", "$DESKTOP/*", "$DOCUMENT/*", "$DOCUMENT/rfid/database/*", "$DOCUMENT/rfid/*"]
+      },
+      "path": {
+        "all": true
+      },
+      "notification": {
+        "all": true
+      }
     },
     "bundle": {
       "active": true,
@@ -30,7 +40,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "com.tauri.dev",
+      "identifier": "com.tauri.truestbyheart",
       "longDescription": "",
       "macOS": {
         "entitlements": null,

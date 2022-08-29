@@ -17,6 +17,8 @@
     "@types/react-dom": "^18.0.6",
     "bootstrap": "^5.2.0",
     "date-fns": "^2.29.1",
+    "html2pdf.js": "^0.10.1",
+    "json-2-csv": "^3.17.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.25",
     "mysql2": "^2.3.3",

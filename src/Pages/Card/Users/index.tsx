@@ -10,22 +10,21 @@ import TablePagination from '@mui/material/TablePagination';
 import TableRow from '@mui/material/TableRow';
 import PersonAddAltIcon from '@mui/icons-material/PersonAddAlt';
 import PrintIcon from '@mui/icons-material/Print';
-import DescriptionIcon from '@mui/icons-material/Description';
 import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import UpgradeIcon from '@mui/icons-material/Upgrade';
+
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import BorderColorIcon from '@mui/icons-material/BorderColor';
 import ReplayIcon from '@mui/icons-material/Replay';
-import { CSVLink } from "react-csv";
 
 
-import { usersHandler } from '../../../Utilities/db.util';
-import { Dialog, DialogActions, DialogContent, DialogTitle, Button, TextField, Snackbar, Alert, AlertColor } from '@mui/material';
+import { get_db_string, QueryExecuteResult, usersHandler } from '../../../Utilities/db.util';
+import { Button, TextField, Snackbar, Alert, AlertColor } from '@mui/material';
 import { invoke } from '@tauri-apps/api';
-import { PaginationMeta } from '../AccessLog/List';
-import generatePDF from '../../../Utilities/pdf.util';
+import { PaginationMeta } from '../AccessLog/index';
 import { format } from 'date-fns';
+import { generateCSVFile } from '../../../Utilities/csv.util';
+import AddUserDialog, { DialogProps } from './UserDialog';
+import TableSkeleton from '../Shared/TableSkeleton';
 
 interface Column {
     id: 'id' | 'full_name' | 'rf_id' | 'created_at' | 'updated_at';
@@ -60,58 +59,6 @@ const columns: readonly Column[] = [
     },
 ];
 
-type DialogProps = {
-    open: boolean;
-    setOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    updateFunc: (payload: { full_name?: string; rf_id?: string; }) => void;
-    updateUserDetails: () => void;
-    createNewUser: () => void;
-    data: { full_name: string; rf_id: string; id: number };
-    isCreating?: boolean;
-    createMode?: boolean;
-}
-
-const AddUserDialog: React.FC<DialogProps> = ({ open, data, setOpen, updateFunc, updateUserDetails, isCreating, createNewUser, createMode }) => {
-    return (<>
-        <Dialog open={open} maxWidth="lg" fullWidth={true}>
-            <DialogTitle>Add New RFID User</DialogTitle>
-            <DialogContent>
-                <form>
-                    <Container>
-                        <Row>
-                            <TextField label="Full Name" variant="standard" defaultValue={data.full_name} onChange={(e) => updateFunc({
-                                full_name: e.target.value,
-                            })}></TextField>
-                        </Row>
-                        <Row className="mt-4">
-                            <TextField label="RFID" variant="standard" defaultValue={data.rf_id} onChange={(e) => updateFunc({
-                                rf_id: e.target.value,
-                            })}></TextField>
-                        </Row>
-                    </Container>
-                </form>
-            </DialogContent>
-            <DialogActions>
-                <Button onClick={() => setOpen(false)}>Cancel</Button>
-                {createMode
-                    ? (<Button variant='contained' color='primary' autoFocus onClick={() => createNewUser()} disabled={isCreating}>
-                        {isCreating ? (<div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
-                            <span className="visually-hidden">Loading...</span>
-                        </div>) : <AddIcon className='me-2' />}
-                        Create
-                    </Button>)
-                    : (<Button variant='contained' color='primary' autoFocus onClick={() => updateUserDetails()} disabled={isCreating}>
-                        {isCreating ? (<div className="spinner-border text-light me-3" role="status" style={{ "width": "20px", "height": "20px" }}>
-                            <span className="visually-hidden">Loading...</span>
-                        </div>) : <UpgradeIcon className='me-2' />}
-                        Update
-                    </Button>)
-                }
-            </DialogActions>
-        </Dialog>
-    </>
-    )
-}
 
 type User = {
     id: number;
@@ -127,16 +74,15 @@ type UsersDataSet = {
 }
 
 async function UsersHandler(limit: number, page: number): Promise<UsersDataSet> {
-    const db_string = await invoke('get_db_string');
+    const db_string = await get_db_string();
     const db = await invoke('plugin:sqlv|load', { db: db_string });
-    const meta = await invoke('plugin:sqlv|generate_pagination_obj', { db, tableName: "users", limit, page }) as unknown as PaginationMeta;
-    const data = await invoke('plugin:sqlv|get_all_users', { db, limit, offset: meta.offset }) as unknown as User[];
-
+    const meta = await invoke('plugin:sqlv|generate_pagination_obj', { db, tableName: "users", limit: limit ? limit : 10, page }) as unknown as PaginationMeta;
+    const data = await invoke('plugin:sqlv|get_all_users', { db, limit: limit ? limit : 10, offset: meta.offset }) as unknown as User[];
     return { data, meta }
 }
 
 async function SearchUsersHandler(search: string): Promise<UsersDataSet> {
-    const db_string = await invoke('get_db_string');
+    const db_string = await get_db_string();
     const db = await invoke('plugin:sqlv|load', { db: db_string });
     const data = await invoke('plugin:sqlv|search_all_users', { db, q: search }) as unknown as User[];
 
@@ -152,6 +98,8 @@ async function SearchUsersHandler(search: string): Promise<UsersDataSet> {
     };
 }
 
+
+
 const ViewUsers: React.FC = () => {
     // State 
     const [rows, setRows] = useState<UsersDataSet['data']>([]);
@@ -160,40 +108,44 @@ const ViewUsers: React.FC = () => {
     const [createMode, setCreateMode] = useState<boolean>(false);
     const [isCreating, setIsCreating] = useState<boolean>(false);
     const [snackBody, setSnackBody] = useState<{ severity: AlertColor; message: string }>({ severity: 'success', message: '' })
-
-    const getting = async (page: number, limit: number): Promise<UsersDataSet> => {
-        return await UsersHandler(limit, page);
-    }
-
     const [page, setPage] = React.useState<number>(0);
     const [rowsPerPage, setRowsPerPage] = React.useState<number>(10);
     const [isDeleting, setIsDeleting] = React.useState<boolean>(false);
     const [data, setData] = React.useState<DialogProps['data']>({ full_name: '', rf_id: '', id: 1 });
     const [search, setSearch] = React.useState<string>('');
     const [isSearch, setIsSearch] = React.useState<boolean>(false);
+    const [isLoading, setIsLoading] = React.useState<boolean>(false);
+    const [rowsPerPageOptions, setRowsPerPageOptions] = React.useState<number>(0);
+    const [hasError, setHasError] = React.useState<boolean>(false);
+    const [errorMessage, setErrorMessage] = React.useState<string>("");
+
+    const getting = async (page: number, limit: number): Promise<UsersDataSet> => {
+        setIsLoading(true);
+        return await UsersHandler(limit, page);
+    }
 
     const stateRefreshHandler = (res: UsersDataSet) => {
         setRows(res.data);
-        setRowsPerPage(res.meta.count);
+        setRowsPerPageOptions(res.meta.count);
+        setRowsPerPage(res.meta.limit);
         setPage(0);
+        setIsLoading(false);
     }
 
     const handleSearch = () => {
         setIsSearch(true);
+        setIsLoading(true);
         SearchUsersHandler(search)
             .then((res) => {
                 console.log(res);
-                // stateRefreshHandler(res);
                 setRows(res.data);
-                // setRowsPerPage(res.meta.count);
-                // setPage(res.meta.page);
                 setIsSearch(false);
+                setIsLoading(false);
             })
             .catch(error => console.log(error));
     }
 
     const handleChangePage = (event: unknown, newPage: number) => {
-        console.log({ page, event })
         getting(page, rowsPerPage)
             .then((res) => {
                 stateRefreshHandler(res);
@@ -203,8 +155,8 @@ const ViewUsers: React.FC = () => {
     };
 
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setRowsPerPage(+event.target.value);
-        getting(page > 0 ? page : 1, rowsPerPage)
+        setRowsPerPage(Number(event.target.value));
+        getting(page > 0 ? page : 1, Number(event.target.value))
             .then(stateRefreshHandler)
             .catch((error: any) => console.log(error));
     };
@@ -221,11 +173,11 @@ const ViewUsers: React.FC = () => {
 
     const updateUserDetails = async () => {
         setIsCreating(true);
-        const hasUpdated = await usersHandler.update_user_details(data.full_name, data.rf_id, data.id);
-        if (hasUpdated) {
+        const result: QueryExecuteResult = await usersHandler.update_user_details(data.full_name, data.rf_id, data.id);
+        if (result.hasAffected) {
             setShow(true)
             setOpen(false)
-            setSnackBody({ severity: 'success', message: 'User updated successfully' })
+            setSnackBody({ severity: 'success', message: result.message })
             getting(page, rowsPerPage)
                 .then((res) => {
                     stateRefreshHandler(res);
@@ -236,8 +188,9 @@ const ViewUsers: React.FC = () => {
                     console.log(error)
                 });
         } else {
-            setShow(true)
-            setSnackBody({ severity: 'error', message: 'Failed to update user' })
+            setIsCreating(false)
+            setHasError(true);
+            setErrorMessage(result.message)
         }
     }
 
@@ -273,31 +226,32 @@ const ViewUsers: React.FC = () => {
                 .catch((error: any) => console.log(error));
         } else {
             setShow(true);
-            setIsDeleting(false);
-            setIsCreating(false)
+            setIsCreating(false);
             setSnackBody({ severity: 'error', message: "Failed to create user" });
         }
     }
 
-    const CreatePdf = async () => {
-        let tableRows = rows.map((row: User) => {
-            return [
-                row.id,
-                row.full_name,
-                row.rf_id,
-                row.created_at,
-                row.updated_at
-            ]
-        });
-        console.log(tableRows)
-        generatePDF(`Users_${format(new Date(), "YYY-MM-dd")}`, ["id", "full_name", "rf_id", "created_at", "updated_at"], tableRows)
+    const generateCSV = async () => {
+        generateCSVFile(`Users_${format(new Date(), "YYY-MM-dd-ss")}.csv`, rows)
     }
+
+    const handleDialogCancel = () => {
+        setHasError(false);
+        setShow(false);
+        setErrorMessage("");
+        setIsCreating(false);
+        setOpen(false);
+    }
+    
     // Use Effect
     useEffect(() => {
+        console.log({ page, rowsPerPage })
         getting(page, rowsPerPage)
-            .then(stateRefreshHandler)
+            .then((res) =>{
+                stateRefreshHandler(res)
+            })
             .catch((error: any) => console.log(error));
-    }, [page, rowsPerPage]);
+    }, [page, rowsPerPage, rowsPerPageOptions]);
 
 
 
@@ -313,6 +267,9 @@ const ViewUsers: React.FC = () => {
                     isCreating={isCreating}
                     data={data}
                     createMode={createMode}
+                    hasError={hasError}
+                    errorMessage={errorMessage}
+                    handleDialogCancel={handleDialogCancel}
                 />
                 <Snackbar
                     open={show}
@@ -359,14 +316,14 @@ const ViewUsers: React.FC = () => {
                                             <PersonAddAltIcon className='me-2' />
                                             Add User
                                         </Button>
-                                        <Button color='primary' className='ms-3'>
+                                        <Button color='primary' className='ms-3' onClick={() => generateCSV()}>
                                             <PrintIcon className='me-2' />
-                                            <CSVLink data={rows} style={{ textDecoration: "none" }}>Print CSV</CSVLink>
+                                            Print CSV
                                         </Button>
-                                        <Button color='primary' className='ms-3' onClick={() => CreatePdf()}>
+                                        {/* <Button color='primary' className='ms-3' onClick={() => CreatePdf()}>
                                             <DescriptionIcon className='me-2' />
                                             Print PDF
-                                        </Button>
+                                        </Button> */}
                                         <Button color='primary' className='ms-3' onClick={async () => {
                                             await getting(page, rowsPerPage).then(stateRefreshHandler).catch(error => console.log(error))
                                         }}>
@@ -385,10 +342,10 @@ const ViewUsers: React.FC = () => {
                                         </TableCell>
                                     ))}
                                     <TableCell key="action" align="left"
-                                        style={{ top: 65, minWidth: 120 }}>Action</TableCell>
+                                        style={{ top: 65, minWidth: 80 }}>Action</TableCell>
                                 </TableRow>
                             </TableHead>
-                            <TableBody>
+                            {isLoading ? <TableSkeleton numberOfColumn={6}/> : (<TableBody>
                                 {rows
                                     ?.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                                     .map((row) => {
@@ -429,14 +386,13 @@ const ViewUsers: React.FC = () => {
                                                     </Row>
                                                 </TableCell>
                                             </TableRow>
-
                                         );
                                     })}
-                            </TableBody>
+                            </TableBody>)}
                         </Table>
                     </TableContainer>
                     <TablePagination
-                        rowsPerPageOptions={[10, 25, 100]}
+                        rowsPerPageOptions={[10, 25, 100, rowsPerPageOptions].sort((a,b) => a-b)}
                         component="div"
                         count={rows.length}
                         rowsPerPage={rowsPerPage}

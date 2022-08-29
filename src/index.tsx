@@ -4,10 +4,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import ViewUsers from './Pages/Card/List';
+import ViewUsers from './Pages/Card/Users';
 import AccessLog from './Pages/Card/AccessLog';
 import MainPanel from './Pages';
-import AccessLogList from './Pages/Card/AccessLog/List';
+import Login from './Pages/Login';
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
@@ -15,12 +15,10 @@ const root = ReactDOM.createRoot(
 root.render(
   <BrowserRouter>
     <Routes>
-      <Route path="/" element={<MainPanel />}>
-        <Route path='users' element={<ViewUsers />}  />
-        <Route path="logs">
-          <Route path="all" element={<AccessLogList />} />
-          <Route path=":rfid" element={<AccessLog />} />
-        </Route>
+      <Route path="/" element={<Login />}/>
+      <Route path="/panel" element={<MainPanel />}>
+        <Route index element={<ViewUsers />}  />
+         <Route path="logs" element={<AccessLog/>} />
       </Route>
     </Routes>
   </BrowserRouter>

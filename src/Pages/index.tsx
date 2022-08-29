@@ -21,7 +21,7 @@ const MenuDrawer: React.FC = () => (
         <Divider />
         <List>
             <ListItem key="users" disablePadding>
-                <Link to="/users" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
+                <Link to="/panel" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
                     <ListItemButton>
                         <ListItemIcon>
                             <PeopleAltRoundedIcon />
@@ -31,7 +31,7 @@ const MenuDrawer: React.FC = () => (
                 </Link>
             </ListItem>
             <ListItem key="logs" disablePadding>
-                <Link to="/logs/all" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
+                <Link to="/panel/logs" className='w-100' style={{ color: "#000", textDecoration: "none" }}>
                     <ListItemButton>
                         <ListItemIcon>
                             <BookIcon />
@@ -76,7 +76,7 @@ const MainPanel = (props: Props) => {
                             <MenuIcon />
                         </IconButton>
                         <Typography variant="h6" noWrap component="div">
-                            Responsive drawer
+                            RFID CARD CONTROL PANEL
                         </Typography>
                     </Toolbar>
                 </AppBar>
